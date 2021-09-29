@@ -72,6 +72,7 @@ sub new {
 		fold_meta_pairs
 		reduce
 		chomp
+		cook_hex
 	);
 
 	@args{qw(re str path)} = (undef, undef, []);
@@ -329,7 +330,7 @@ sub _lex {
 					push @path, $1 eq 'l' ? lc($2) : uc($2);
 					goto NEXT_TOKEN;
 				}
-				elsif( $token =~ /^\\x([\da-fA-F]{2})$/ ) {
+				elsif( $self->{cook_hex} and $token =~ /^\\x([\da-fA-F]{2})$/ ) {
 					$token = quotemeta(chr(hex($1)));
 					$debug and print "#  cooked <$token>\n";
 					$token =~ s/^\\([^\w$()*+.?@\[\\\]^|{\/])$/$1/; # } balance
@@ -807,6 +808,12 @@ sub reduce {
 sub mutable {
 	my $self = shift;
 	$self->{mutable} = defined($_[0]) ? $_[0] : 1;
+	return $self;
+}
+
+sub cook_hex {
+	my $self = shift;
+	$self->{cook_hex} = defined($_[0]) ? $_[0] : 1;
 	return $self;
 }
 
@@ -2457,6 +2464,9 @@ really serve any purpose, and may be more effectively replaced by
 cloning an existing C<Regexp::Assemble> object and spinning out a
 pattern from that instead.
 
+B<cook_hex>, controls whether hexadecimal escape secquences, such as
+C<\x00>, should be replaced by the bytes they represent.
+
 =head2 source()
 
 When using tracked mode, after a successful match is made, returns
@@ -2907,6 +2917,11 @@ that can consume a non-negligible amount of time).
 This method has been marked as DEPRECATED. It will be removed
 in a future release. See the C<clone> method for a technique
 to replace its functionality.
+
+=head2 cook_hex(0|1)
+Controls whether hexadecimal escape secquences, such as
+C<\x00>, should be replaced by the bytes they represent.
+On by default.
 
 =head2 reset()
 
