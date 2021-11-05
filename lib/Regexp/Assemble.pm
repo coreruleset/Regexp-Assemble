@@ -77,6 +77,13 @@ sub new {
 
 	@args{qw(re str path)} = (undef, undef, []);
 
+	# Replace the string with an array ref
+	my @fet = ();
+	if (length $args{force_escape_tokens}) {
+		@fet = split '', $args{force_escape_tokens};
+	}
+	@args{force_escape_tokens} = \@fet;
+
 	$args{flags} ||= delete $args{modifiers} || '';
 	$args{lex}     = $Current_Lexer if defined $Current_Lexer;
 
@@ -130,7 +137,7 @@ sub _fastlex {
 
 	my $token;
 	my $qualifier;
-	$debug and print "# _lex <$record>\n";
+	$debug and print "# _fastlex <$record>\n";
 	my $modifier        = q{(?:[*+?]\\??|\\{(?:\\d+(?:,\d*)?|,\d+)\\}\\??)?};
 	my $class_matcher   = qr/\[(?:\[:[a-z]+:\]|\\?.)*?\]/;
 	my $paren_matcher   = qr/\(.*?(?<!\\)\)$modifier/;
@@ -349,6 +356,14 @@ sub _lex {
 			# undo quotemeta's brute-force escapades
 			$qm and $token =~ s/^\\([^\w$()*+.?@\[\\\]^|{}\/])$/$1/;
 			$debug and print "#   <$token> case=<$case> qm=<$qm>\n";
+
+			foreach (@{$self->{force_escape_tokens}}) {
+				$token =~ s/([^\\])($_)/$1\\$2/;
+				$token =~ s/^($_)/\\$1/;
+				print $token;
+				last;
+			}
+
 			push @path, $token;
 
 			NEXT_TOKEN:
@@ -790,6 +805,20 @@ sub track {
 sub unroll_plus {
 	my $self = shift;
 	$self->{unroll_plus} = defined($_[0]) ? $_[0] : 1;
+	return $self;
+}
+
+sub force_escape_tokens {
+	my $self = shift;
+	my $arrayref = [];
+	if (defined($_[0])) {
+		if (ref($_[0])) {
+			$arrayref = $_[0];
+		} else {
+			$arrayref = \$_[0];
+		}
+	}
+	$self->{force_escape_tokens} = $arrayref;
 	return $self;
 }
 
@@ -2439,6 +2468,11 @@ B<unroll_plus>, controls whether to unroll, for example, C<x+> into
 C<x>, C<x*>, which may allow additional reductions in the
 resulting assembled pattern.
 
+B<force_escape_tokens>, specifies optional tokens that must always be
+escaped. This can be useful when you know that the resulting expression
+will be surrounded by quotes for instance.
+Note that this only works for _lex, not for _fastlex.
+
 B<reduce>, controls whether tail reduction occurs or not. If set,
 patterns like C<a(?:bc+d|ec+d)> will be reduced to C<a[be]c+d>.
 That is, the end of the pattern in each part of the b... and d...
@@ -2878,7 +2912,7 @@ constructs. This provides the necessary information to
 determine which, of the original patterns added, was the
 one that caused the match.
 
-  $re->track( 1 );
+  $re->track( 1 )t
   if( $target =~ /$re/ ) {
 	print "$target matched by ", $re->matched, "\n";
   }
@@ -2895,6 +2929,13 @@ Turns the unrolling of plus metacharacters on or off. When
 a pattern is broken up, C<a+> becomes C<a>, C<a*> (and
 C<b+?> becomes C<b>, C<b*?>. This may allow the freed C<a>
 to assemble with other patterns. Not enabled by default.
+
+=head2 force_escape_tokens(ARRAY REF)
+
+Specifies optional tokens that must always be
+escaped. This can be useful when you know that the resulting expression
+will be surrounded by quotes for instance.
+Note that this only works for _lex, not for _fastlex.
 
 =head2 lex(SCALAR)
 
