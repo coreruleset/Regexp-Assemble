@@ -360,7 +360,6 @@ sub _lex {
 			foreach (@{$self->{force_escape_tokens}}) {
 				$token =~ s/([^\\])($_)/$1\\$2/;
 				$token =~ s/^($_)/\\$1/;
-				print $token;
 				last;
 			}
 
